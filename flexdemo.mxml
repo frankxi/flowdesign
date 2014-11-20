@@ -1,0 +1,353 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:Application xmlns:mx="http://www.adobe.com/2006/mxml" layout="absolute" 
+				applicationComplete="onAppComplete();" fontSize="12" height="100%" width="100%">
+	<mx:Script>
+		<![CDATA[
+		import mx.controls.Alert;
+		import wf.*;
+		import mx.formatters.DateFormatter;
+		import mx.events.ItemClickEvent;
+		
+		import mx.events.DataGridEvent;
+		import mx.events.IndexChangedEvent;
+		import mx.events.CloseEvent;
+		
+		
+		import mx.core.UIComponent;
+		private var myDrawBoard:DrawBoard=new DrawBoard;
+		private var fr:FileReference= new FileReference();
+		private var iniXml:XML=null;
+		
+		private function onAppComplete():void {
+		CreateContainer();
+		tn_prop.removeAllChildren();
+		fr.addEventListener(Event.COMPLETE,onFileComplete);
+		}
+		private function CreateContainer():void {
+		myDrawBoard.x=0;
+		myDrawBoard.y=0;
+		myDrawBoard.percentWidth=100;
+		myDrawBoard.percentHeight=100;
+		myCanvas.addChild(myDrawBoard);
+		myDrawBoard.addEventListener(DrawBoard.STATUSCHANGED,onstatuschanged);
+		myDrawBoard.addEventListener(ElementEvent.ELEMENT_SELECT_CHANGED,onelementselectchanged);
+		/*iniXml=
+		<WorkFlow>
+		<Route ID="13" Name="" FromElementID="5" ToElementID="2"/>
+		<Route ID="12" Name="" FromElementID="10" ToElementID="5"/>
+		<Route ID="11" Name="" FromElementID="1" ToElementID="10"/>
+		<BeginNode ID="1" Name="" x="247" y="87" Radio="20"/>
+		<EndNode ID="2" Name="" x="247" y="335" Radio="20"/>
+		<WorkNode ID="5" Name="审批" NodeType="审批" x="197" y="224" Width="100" Height="30"/>
+		<WorkNode ID="10" Name="审批" NodeType="审批" x="197" y="156" Width="100" Height="30"/>
+		</WorkFlow>
+		if(iniXml != null){
+		myDrawBoard.ParseFromXml(iniXml);       				
+		} */   			
+		myDrawBoard.AddUndo();
+		}
+		
+		private function onstatuschanged(event:Event):void {
+		tx_Status.text= myDrawBoard.Status;
+		}
+		private function onelementselectchanged(event:ElementEvent):void {
+		if (event.srcElement is Element) {
+		if (event.srcElement.Selected==true) {
+		tn_prop.removeAllChildren();
+		if (event.srcElement is WorkNode) {
+		tn_prop.addChild(tab_worknode_prop);
+		tn_prop.tabChildren=false;
+		showWorkNodeProperty(event.srcElement as WorkNode)
+		}
+		if (event.srcElement is BeginNode) {
+		tn_prop.addChild(tab_beginnode_prop);
+		tn_prop.tabIndex=0;
+		showBeginNodeProperty(event.srcElement as BeginNode)
+		}
+		if (event.srcElement is EndNode) {
+		tn_prop.addChild(tab_endnode_prop);
+		tn_prop.tabIndex=0;
+		showEndNodeProperty(event.srcElement as EndNode)
+		}
+		if (event.srcElement is Route) {
+		tn_prop.addChild(tab_route_prop);
+		tn_prop.tabIndex=0;
+		showRouteProperty(event.srcElement as Route)
+		}
+		}
+		tx_Eement.text=event.srcElement.className;
+		tx_Status.text= myDrawBoard.Status;
+		}
+		}
+		
+		private function showWorkNodeProperty(iElement:WorkNode):void{
+		tx_WorkNode_ID.text =iElement.ID.toString();
+		tx_WorkNode_Name.text =iElement.Name;
+		cb_WorkNode_Type.text =iElement.NodeType;
+		tx_WorkNode_Left.text =iElement.x.toString();
+		tx_WorkNode_Top.text =iElement.y.toString();
+		tx_WorkNode_Width.text =iElement.width.toString();
+		tx_WorkNode_Height.text =iElement.height.toString();
+		}
+		
+		private function showBeginNodeProperty(iElement:BeginNode):void{
+		tx_BeginNode_ID.text =iElement.ID.toString();
+		tx_BeginNode_Left.text =iElement.x.toString();
+		tx_BeginNode_Top.text =iElement.y.toString();
+		}
+		private function showEndNodeProperty(iElement:EndNode):void{
+		tx_EndNode_ID.text =iElement.ID.toString();
+		tx_EndNode_Left.text =iElement.x.toString();
+		tx_EndNode_Top.text =iElement.y.toString();
+		}
+		private function showRouteProperty(iElement:Route):void{
+		tx_Route_ID.text =iElement.ID.toString();
+		tx_Route_Name.text =iElement.Name;
+		tx_Route_Left.text =iElement.fromX.toString();
+		tx_Route_Top.text =iElement.fromY.toString();
+		tx_Route_Right.text =iElement.toX.toString();
+		tx_Route_Bottom.text =iElement.toY.toString();
+		}
+		private function DeleteElement():void {
+		var i:int=0;
+		for (i=0;i<myDrawBoard.getChildren().length;i++) {
+		if ((myDrawBoard.getChildAt(i) as Element).Selected==true) {
+		myDrawBoard.DeleteElement(myDrawBoard.getChildAt(i) as Element);
+		}
+		}
+		}
+		private function SaveFile():void {
+		var fr:FileReference= new FileReference();
+		var xml:XML=new XML(myDrawBoard.BuildXml().toString());
+		var dt:Date = new Date();
+		var filename:String;
+		
+		var dateFormatter:DateFormatter=new DateFormatter();
+		dateFormatter.formatString="YYYY-MM-DD JJ-NN-SS";//2009-01-21 12-01-04
+		filename="workflow_"+dateFormatter.format(dt)+".xml";
+		fr.save(xml,filename);
+		}
+		private function OpenFile():void {
+		var fileRefList:FileReferenceList = new FileReferenceList();
+		var allFilter:FileFilter = new FileFilter("xml (*.xml)", "*.xml");				
+		if (fr.browse(new Array(allFilter))) {
+		fr.addEventListener(Event.SELECT,onFileSelect);
+		}
+		}
+		private function onFileComplete(event: Event):void {
+		var xml:XML=new XML(fr.data.toString());
+		this.myDrawBoard.Clear();
+		this.myDrawBoard.ParseFromXml(xml);
+		this.myDrawBoard.AddUndo();
+		}
+		private function onFileSelect(event: Event):void {
+		fr.load();
+		}
+		private function onChange(event: IndexChangedEvent):void {
+		if (event.newIndex==1) {
+		tx_XML.text=myDrawBoard.BuildXml().toString();
+		}
+		}
+		private function ontabIndexChange(event: Event):void {
+		Alert.show(event.toString());
+		}
+		private function onNameChange(event: flash.events.Event):void {
+		myDrawBoard.selectedElement.Name=(event.currentTarget as TextInput).text;
+		myDrawBoard.selectedElement.Draw();
+		myDrawBoard.AddUndo();
+		}
+		private function onLeftChange(event: flash.events.Event):void {
+		myDrawBoard.selectedElement.x=int((event.currentTarget as TextInput).text);
+		myDrawBoard.selectedElement.Draw();
+		myDrawBoard.AddUndo();
+		}
+		private function onTopChange(event: flash.events.Event):void {
+		myDrawBoard.selectedElement.y=int((event.currentTarget as TextInput).text);
+		myDrawBoard.selectedElement.Draw();
+		myDrawBoard.AddUndo();
+		}
+		private function onWidthChange(event: flash.events.Event):void {
+		myDrawBoard.selectedElement.width=int((event.currentTarget as TextInput).text);
+		myDrawBoard.selectedElement.Draw();
+		myDrawBoard.AddUndo();
+		}
+		private function onHeightChange(event: flash.events.Event):void {
+		myDrawBoard.selectedElement.height=int((event.currentTarget as TextInput).text);
+		myDrawBoard.selectedElement.Draw();
+		myDrawBoard.AddUndo();
+		}
+		private function onNodeTypeChange(event: flash.events.Event):void {
+		(myDrawBoard.selectedElement as WorkNode).NodeType=(event.currentTarget as ComboBox).text;
+		if (myDrawBoard.selectedElement.Name=="") {
+		myDrawBoard.selectedElement.Name=(event.currentTarget as ComboBox).text;
+		tx_WorkNode_Name.text=myDrawBoard.selectedElement.Name;
+		}
+		myDrawBoard.selectedElement.Draw();
+		myDrawBoard.AddUndo();
+		}
+		public function ontoolbarclick(event:ItemClickEvent) : void {
+		switch(event.item.cmd) {
+		case "openfile":
+		{
+		OpenFile();
+		break;
+		}
+		case "savefile":
+		{
+		SaveFile();
+		break;
+		}
+		case "delete":
+		{
+		DeleteElement();
+		break;
+		}
+		case "select":
+		{
+		myDrawBoard.Status="";
+		break;
+		}
+		case "beginnode":
+		{
+		myDrawBoard.Status="beginnode";
+		break;
+		}
+		case "endnode":
+		{
+		myDrawBoard.Status="endnode";
+		break;
+		}
+		case "worknode":
+		{
+		myDrawBoard.Status="worknode";
+		break;
+		}
+		case "route":
+		{
+		myDrawBoard.Status="routebegin";
+		break;
+		}
+		case "undo":
+		{
+		myDrawBoard.Undo();
+		break;
+		}
+		case "redo":
+		{
+		myDrawBoard.Redo();
+		break;
+		}
+		case "clear":
+		{
+		Alert.show("您确认要清空图形吗？","提示",Alert.YES | Alert.NO,null,onClearCloseHandler);
+		break;
+		}
+		}
+		}
+		private function onClearCloseHandler(event:CloseEvent):void {
+		if (event.detail==Alert.YES) {
+		myDrawBoard.Clear();
+		myDrawBoard.AddUndo();
+		}
+		}			
+		]]>
+	</mx:Script>
+	<mx:Array id="ToolButton"> 
+		<mx:Object label="打开" icon="@Embed('img/open.gif')" cmd="openfile"/> 
+		<mx:Object label="保存" icon="@Embed('img/save.gif')" cmd="savefile" /> 
+		<mx:Object label="清空" icon="@Embed('img/clear.gif')" cmd="clear" /> 
+		<mx:Object label="删除" icon="@Embed('img/del.gif')" cmd="delete" />
+		<mx:Object label="撤销" icon="@Embed('img/undo.gif')" cmd="undo"/>
+		<!--<mx:Object label="重做" icon="@Embed('img/redo.gif')" cmd="redo"/>-->
+		<mx:Object width="10"></mx:Object>
+		<mx:Object label="选择" icon="@Embed('img/select.png')" cmd="select" />
+		<mx:Object label="开始环节" icon="@Embed('img/beginnode.gif')" cmd="beginnode" />
+		<mx:Object label="结束环节" icon="@Embed('img/endnode.gif')" cmd="endnode"/>
+		<mx:Object label="业务环节" icon="@Embed('img/worknode.gif')" cmd="worknode" />
+		<mx:Object label="路由线" icon="@Embed('img/route.png')" cmd="route"/>
+	</mx:Array> 
+	<mx:ButtonBar x="0" y="10" id="tb_Main" height="30" dataProvider="{ToolButton}" itemClick="ontoolbarclick(event)"/>  
+	<mx:HDividedBox left="0" top="50" bottom="30" right="0">
+		<mx:TabNavigator change="onChange(event);" width="90%" height="100%" id="tn_designer" selectedIndex="0" creationPolicy="all" tabIndexChange="ontabIndexChange(event);">
+			<mx:Canvas  label="设计器" width="100%" height="100%" id="myCanvas">
+			</mx:Canvas>
+			<mx:Canvas label="XML" width="100%" height="100%">
+				<mx:TextArea x="0" y="0" width="100%" height="100%" id="tx_XML"/>
+			</mx:Canvas>
+		</mx:TabNavigator>
+		<mx:TabNavigator width="200" height="100%" id="tn_prop" selectedIndex="2" creationPolicy="all">
+			<mx:Canvas id="tab_worknode_prop" label="业务环节" width="100%" height="100%">
+				<mx:Label x="10" y="10" text="编号："/>
+				<mx:TextInput y="8" right="10" left="71" id="tx_WorkNode_ID" enabled="false"/>
+				<mx:Label x="10" y="42" text="名称："/>
+				<mx:Label x="10" y="75" text="业务类型："/>
+				<mx:Label x="10" y="113" text="位置"/>
+				<mx:Label x="71" y="115" text="左："/>
+				<mx:Label x="71" y="143" text="上："/>
+				<mx:TextInput y="113" right="10" left="108" id="tx_WorkNode_Left" change="onLeftChange(event);"/>
+				<mx:Label x="71" y="173" text="宽："/>
+				<mx:TextInput y="171" right="10" left="108" id="tx_WorkNode_Width" change="onWidthChange(event);"/>
+				<mx:Label x="71" y="203" text="高："/>
+				<mx:TextInput y="201" right="10" left="108" id="tx_WorkNode_Height" change="onHeightChange(event);"/>
+				<mx:TextInput y="141" right="10" left="108" id="tx_WorkNode_Top" change="onTopChange(event);"/>
+				<mx:TextInput y="40" right="10" left="71" id="tx_WorkNode_Name" change="onNameChange(event)"/>
+				<mx:ComboBox y="72"  right="10" left="71" id="cb_WorkNode_Type" change="onNodeTypeChange(event)">
+					<mx:dataProvider>
+						<mx:Array>
+							<mx:Object label="审批" data="审批"/>
+							<!--<mx:Object label="查勘" data="查勘"/>
+							<mx:Object label="审批" data="审批"/>
+							<mx:Object label="收费" data="收费"/>
+							<mx:Object label="配表" data="配表"/>
+							<mx:Object label="装接" data="装接"/>
+							<mx:Object label="归档" data="归档"/>-->
+						</mx:Array>
+					</mx:dataProvider>
+				</mx:ComboBox>
+				<mx:HRule y="103" right="10" left="10"/>
+			</mx:Canvas>
+			<mx:Canvas id="tab_endnode_prop" label="结束环节" width="100%" height="100%">
+				<mx:Label x="10" y="10" text="编号："/>
+				<mx:TextInput y="8" right="10" left="71" id="tx_EndNode_ID" enabled="false"/>
+				<mx:Label x="10" y="48" text="位置"/>
+				<mx:Label x="71" y="50" text="左："/>
+				<mx:Label x="71" y="78" text="上："/>
+				<mx:TextInput y="48" right="10" left="108" id="tx_EndNode_Left" change="onLeftChange(event);"/>
+				<mx:TextInput y="76" right="10" left="108" id="tx_EndNode_Top" change="onTopChange(event);"/>
+				<mx:HRule y="38" right="10" left="10"/>
+			</mx:Canvas>
+			<mx:Canvas id="tab_beginnode_prop" label="开始环节" width="100%" height="100%">
+				<mx:Label x="10" y="10" text="编号："/>
+				<mx:TextInput y="8" right="10" left="71" id="tx_BeginNode_ID" enabled="false"/>
+				<mx:Label x="10" y="48" text="位置"/>
+				<mx:Label x="71" y="50" text="左："/>
+				<mx:Label x="71" y="78" text="上："/>
+				<mx:TextInput y="48" right="10" left="108" id="tx_BeginNode_Left" change="onLeftChange(event);"/>
+				<mx:TextInput y="76" right="10" left="108" id="tx_BeginNode_Top" change="onTopChange(event);"/>
+				<mx:HRule y="38" right="10" left="10"/>
+			</mx:Canvas>
+			<mx:Canvas id="tab_route_prop" label="路由" width="100%" height="100%">
+				<mx:Label x="10" y="10" text="编号："/>
+				<mx:TextInput y="8" right="10" left="71" id="tx_Route_ID" enabled="false"/>
+				<mx:Label x="10" y="42" text="名称："/>
+				<mx:Label x="10" y="149" text="位置"/>
+				<mx:Label x="71" y="151" text="左："/>
+				<mx:Label x="71" y="179" text="上："/>
+				<mx:TextInput y="149" right="10" left="108" id="tx_Route_Left" enabled="false"/>
+				<mx:Label x="71" y="209" text="右："/>
+				<mx:TextInput y="207" right="10" left="108" id="tx_Route_Right" enabled="false"/>
+				<mx:Label x="71" y="239" text="下："/>
+				<mx:TextInput y="237" right="10" left="108" id="tx_Route_Bottom" enabled="false"/>
+				<mx:TextInput y="177" right="10" left="108" id="tx_Route_Top" enabled="false"/>
+				<mx:TextInput y="40" right="10" left="71" id="tx_Route_Name" change="onNameChange(event)"/>
+				<mx:Label x="12" y="70" text="表达式："/>
+				<mx:HRule y="134" right="10" left="10"/>
+				<mx:TextArea y="69" right="10" left="71" height="57" id="tx_Route_Expression"/>
+			</mx:Canvas>
+		</mx:TabNavigator>
+	</mx:HDividedBox>
+	<mx:ControlBar width="100%" height="30" bottom="0" left="0">
+		<mx:Text width="128" id="tx_Status" visible="false"/>
+		<mx:TextInput id="tx_Eement" visible="false"/>		
+	</mx:ControlBar>
+</mx:Application>
